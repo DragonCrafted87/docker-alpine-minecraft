@@ -19,7 +19,11 @@ def main():
   else:
     fabric_installer = Path('/mnt/minecraft/fabric-installer.jar')
     if fabric_installer.is_file() :
-      run('java -jar fabric-installer.jar server -downloadMinecraft', shell=True, cwd='/mnt/minecraft/')
+      run('java -jar fabric-installer.jar server -downloadMinecraft',
+          capture_output=True,
+          shell=True,
+          cwd='/mnt/minecraft/',
+          check=True)
       fabric_installer.unlink()
     execvp('tini', ['tini', '-e',  '143', '--',
       'cd /mnt/minecraft/; java -Xms4G -Xmx4G -jar fabric-server-launch.jar --nogui --forceUpgrade'])
