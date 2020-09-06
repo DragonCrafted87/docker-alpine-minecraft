@@ -4,14 +4,25 @@
 from os import execvp
 from os import getpid
 from pathlib import PurePath
+from pathlib import Path
+from subprocess import run
 
 # Local Imports
 from includes.python_logger import create_logger
 
 def main():
   logger = create_logger(PurePath(__file__).stem)
-  logger.info(f'Starting tini as pid {getpid()}')
-  execvp('tini', ['tini', '-e',  '143', '--', '/mnt/minecraft/start-server.sh'])
+  start_server_script = Path('/mnt/minecraft/start-server.sh')
+  if start_server_script.is_file() :
+    logger.info(f'Starting tini as pid {getpid()}')
+    execvp('tini', ['tini', '-e',  '143', '--', str(start_server_script) ])
+  else:
+    fabric_installer = Path('/mnt/minecraft/fabric-installer.jar')
+    if fabric_installer.is_file() :
+      run('java -jar fabric-installer.jar server -downloadMinecraft', shell=True, cwd='/mnt/minecraft/')
+      fabric_installer.unlink()
+    execvp('tini', ['tini', '-e',  '143', '--',
+      'cd /mnt/minecraft/; java -Xms4G -Xmx4G -jar fabric-server-launch.jar --nogui --forceUpgrade'])
 
 if __name__ == "__main__":
   main()
