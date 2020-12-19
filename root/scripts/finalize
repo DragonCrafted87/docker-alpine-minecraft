@@ -1,29 +1,163 @@
 #!/usr/bin/python3
 
 # System Imports
+from distutils.dir_util import copy_tree
+from logging import ERROR
+from logging import INFO
+from os import chdir
+from os import close as os_close
 from os import execvp
+from os import fdopen
 from os import getpid
-from pathlib import PurePath
+from os import pipe as os_pipe
+from os import remove
 from pathlib import Path
+from pathlib import PurePath
 from shutil import copy
+from signal import SIGABRT
+from signal import SIGINT
+from signal import signal
+from signal import SIGTERM
+from subprocess import Popen, PIPE, STDOUT
+from sys import exit as sys_exit
+from threading import Thread
+from time import sleep
 
 # Local Imports
 from includes.python_logger import create_logger
 
+RAM_DRIVE = '/mnt/ramdisk/'
+NFS_DRIVE = '/mnt/minecraft/'
+
+class LogPipe(Thread):
+
+    def __init__(self, base_logger, level):
+        """Setup the object with a logger and a loglevel
+        and start the thread
+        """
+        Thread.__init__(self)
+        self.daemon = False
+        self.level = level
+        self.fdRead, self.fdWrite = os_pipe()
+        self.pipeReader = fdopen(self.fdRead)
+        self.base_logger = base_logger
+        self.last_logged_line = ''
+        self.start()
+
+    def fileno(self):
+        """Return the write file descriptor of the pipe
+        """
+        return self.fdWrite
+
+    def run(self):
+        """Run the thread, logging everything.
+        """
+        for line in iter(self.pipeReader.readline, ''):
+          self.last_logged_line = line.strip('\n')
+          self.base_logger.log(self.level, line.strip('\n'))
+
+        self.pipeReader.close()
+
+    def close(self):
+        """Close the write end of the pipe.
+        """
+        os_close(self.fdWrite)
+
+LOGGER = create_logger(PurePath(__file__).stem)
+LOGINFO = LogPipe(LOGGER, INFO)
+LOGERR = LogPipe(LOGGER, ERROR)
+
+CHILD_PROCESS_LIST = []
+
+def signal_handler(sig, frame):
+  for process in CHILD_PROCESS_LIST:
+    if process.poll():
+      process.stdin.write(b'save-all\n')
+      process.stdin.flush()
+      while not LOGINFO.last_logged_line.endswith('Saved the game'):
+        print('waiting for Saved string')
+        sleep(1)
+      process.stdin.write(b'stop\n')
+      sleep(1)
+
+  copy_tree(
+    RAM_DRIVE,
+    NFS_DRIVE,
+    update=1,
+    verbose=1,
+  )
+
+  LOGINFO.close()
+  LOGERR.close()
+
+  raise SystemExit('Exiting')
+  return
+
 def main():
-  logger = create_logger(PurePath(__file__).stem)
+  signal(SIGINT, signal_handler)
+  signal(SIGABRT, signal_handler)
+  signal(SIGTERM, signal_handler)
 
   fabric_installer = Path('/mnt/minecraft/fabric-installer.jar')
   if fabric_installer.is_file() :
-    start_server_script = Path('/mnt/minecraft/fabric-installer.sh')
-  else:
-    start_server_script = Path('/mnt/minecraft/start-server.sh')
+    chdir(NFS_DRIVE)
+    start_server_script = 'java -jar fabric-installer.jar server -downloadMinecraft'
+    minecraft = Popen(start_server_script, shell=True, stdout=LOGINFO, stderr=LOGERR)
+    minecraft.wait()
+    remove('fabric-installer.jar')
 
-  if not start_server_script.is_file() :
-    copy(f'/scripts/{start_server_script.name}', str(start_server_script))
+  copy_tree(
+    NFS_DRIVE,
+    RAM_DRIVE,
+    update=1,
+    verbose=1,
+  )
 
-  logger.info(f'Starting tini as pid {getpid()}')
-  execvp('tini', ['tini', '-e',  '143', '--', str(start_server_script) ])
+  chdir(RAM_DRIVE)
+  start_server_script = 'java -Xms4G -Xmx4G -jar fabric-server-launch.jar --nogui'
+  minecraft = Popen(start_server_script, shell=True, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
+  CHILD_PROCESS_LIST.append(minecraft)
+
+  # wait to finish booting
+  while not LOGINFO.last_logged_line.endswith('RCON running on 0.0.0.0:25575'):
+    sleep(1)
+
+  counter = 0
+  running = bool(minecraft.poll())
+  while running:
+    if counter > 300:
+      minecraft.stdin.write(b'save-off\n')
+      minecraft.stdin.flush()
+      minecraft.stdin.write(b'save-all\n')
+      minecraft.stdin.flush()
+      while not LOGINFO.last_logged_line.endswith('Saved the game'):
+        sleep(1)
+
+      copy_tree(
+        RAM_DRIVE,
+        NFS_DRIVE,
+        update=1,
+        verbose=1,
+      )
+      minecraft.stdin.write(b'save-on\n')
+      minecraft.stdin.flush()
+      counter = 0
+    else:
+      counter = counter + 1
+
+    sleep(1)
+    running = bool(minecraft.poll())
+
+  #do the final copy
+  copy_tree(
+    RAM_DRIVE,
+    NFS_DRIVE,
+    update=1,
+    verbose=1,
+  )
+
+
+
 
 if __name__ == "__main__":
   main()
