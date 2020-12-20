@@ -97,18 +97,18 @@ def save(process):
       minecraft.stdin.flush()
 
 def save_and_exit():
+  LOGGER.info('Starting Final Sync')
   for process in CHILD_PROCESS_LIST:
-    save(process)
     process.stdin.write(b'stop\n')
+    process.stdin.flush()
 
-#  counter = 0
-#  while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 90:
-#    print('waiting on close')
-#    sleep(1)
-#    counter = counter + 1
+    counter = 0
+    while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 90:
+      sleep(1)
+      counter = counter + 1
 
   sync_copy()
-  print('after sync')
+  LOGGER.info('Finished Final Sync')
 
   LOGINFO.close()
   LOGERR.close()
