@@ -7,20 +7,17 @@ from logging import ERROR
 from logging import INFO
 from os import chdir
 from os import close as os_close
-from os import execvp
 from os import fdopen
-from os import getpid
 from os import pipe as os_pipe
 from os import remove
 from pathlib import Path
 from pathlib import PurePath
-from shutil import copy
 from signal import SIGABRT
 from signal import SIGINT
 from signal import signal
 from signal import SIGTERM
-from subprocess import Popen, PIPE, STDOUT
-from sys import exit as sys_exit
+from subprocess import PIPE
+from subprocess import Popen
 from threading import Thread
 from time import sleep
 
@@ -54,8 +51,8 @@ class LogPipe(Thread):
         """Run the thread, logging everything.
         """
         for line in iter(self.pipeReader.readline, ''):
-          self.last_logged_line = line.strip('\n')
-          self.base_logger.log(self.level, line.strip('\n'))
+            self.last_logged_line = line.strip('\n')
+            self.base_logger.log(self.level, line.strip('\n'))
 
         self.pipeReader.close()
 
@@ -75,90 +72,95 @@ distutils.log = LOGGER
 CHILD_PROCESS_LIST = []
 
 def sync_copy():
-  copy_tree(
-    RAM_DRIVE,
-    NFS_DRIVE,
-    update=1,
-  )
+    copy_tree(
+      RAM_DRIVE,
+      NFS_DRIVE,
+      update=1,
+    )
 
 def save(process):
-  if process.poll():
-      minecraft.stdin.write(b'save-off\n')
-      minecraft.stdin.flush()
-      minecraft.stdin.write(b'save-all\n')
-      minecraft.stdin.flush()
+    if process.poll() is None:
+        process.stdin.write(b'save-off\n')
+        process.stdin.flush()
+        process.stdin.write(b'save-all\n')
+        process.stdin.flush()
 
-      while not LOGINFO.last_logged_line.endswith('Saved the game') and not LOGINFO.last_logged_line.endswith('RCON Listener stopped'):
-        sleep(1)
+        counter = 0
+        while (not LOGINFO.last_logged_line.endswith('Saved the game') and
+               not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and
+               counter < 90):
+            sleep(1)
+            counter = counter + 1
 
-      sync_copy()
+        sync_copy()
 
-      minecraft.stdin.write(b'save-on\n')
-      minecraft.stdin.flush()
+        process.stdin.write(b'save-on\n')
+        process.stdin.flush()
 
 def save_and_exit():
-  LOGGER.info('Starting Final Sync')
-  for process in CHILD_PROCESS_LIST:
-    process.stdin.write(b'stop\n')
-    process.stdin.flush()
+    LOGGER.info('Starting Final Sync')
+    for process in CHILD_PROCESS_LIST:
+        if process.poll() is None:
+            process.stdin.write(b'stop\n')
+            process.stdin.flush()
 
-    counter = 0
-    while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 30:
-      sleep(1)
-      counter = counter + 1
+            counter = 0
+            while (not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and
+                   counter < 30):
+                sleep(1)
+                counter = counter + 1
 
-  sync_copy()
-  LOGGER.info('Finished Final Sync')
+    sync_copy()
+    LOGGER.info('Finished Final Sync')
 
-  LOGINFO.close()
-  LOGERR.close()
+    LOGINFO.close()
+    LOGERR.close()
 
-  raise SystemExit('Exiting')
-  return
+    raise SystemExit('Exiting')
 
 def signal_handler(sig, frame):
-  save_and_exit()
+    save_and_exit()
 
 
 def main():
-  signal(SIGINT, signal_handler)
-  signal(SIGABRT, signal_handler)
-  signal(SIGTERM, signal_handler)
+    signal(SIGINT, signal_handler)
+    signal(SIGABRT, signal_handler)
+    signal(SIGTERM, signal_handler)
 
-  fabric_installer = Path('/mnt/minecraft/fabric-installer.jar')
-  if fabric_installer.is_file() :
-    chdir(NFS_DRIVE)
-    start_server_script = 'java -jar fabric-installer.jar server -downloadMinecraft'
-    minecraft = Popen(start_server_script, shell=True, stdout=LOGINFO, stderr=LOGERR)
-    minecraft.wait()
-    remove('fabric-installer.jar')
+    fabric_installer = Path('/mnt/minecraft/fabric-installer.jar')
+    if fabric_installer.is_file() :
+        chdir(NFS_DRIVE)
+        start_server_script = 'java -jar fabric-installer.jar server -downloadMinecraft'
+        minecraft = Popen(start_server_script, shell=True, stdout=LOGINFO, stderr=LOGERR)
+        minecraft.wait()
+        remove('fabric-installer.jar')
 
-  copy_tree(
-    NFS_DRIVE,
-    RAM_DRIVE,
-    update=1,
-  )
+    copy_tree(
+      NFS_DRIVE,
+      RAM_DRIVE,
+      update=1,
+    )
 
-  chdir(RAM_DRIVE)
-  start_server_script = 'java -Xms4G -Xmx4G -jar fabric-server-launch.jar --nogui'
-  minecraft = Popen(start_server_script, shell=True, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
-  CHILD_PROCESS_LIST.append(minecraft)
+    chdir(RAM_DRIVE)
+    start_server_script = 'java -Xms4G -Xmx4G -jar fabric-server-launch.jar --nogui'
+    minecraft = Popen(start_server_script, shell=True, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
+    CHILD_PROCESS_LIST.append(minecraft)
 
-  # wait to finish booting
-  while not LOGINFO.last_logged_line.endswith('RCON running on 0.0.0.0:25575'):
-    sleep(1)
+    # wait to finish booting
+    while not LOGINFO.last_logged_line.endswith('RCON running on 0.0.0.0:25575'):
+        sleep(1)
 
-  counter = 0
-  while not LOGINFO.last_logged_line.endswith('RCON Listener stopped'):
-    if counter > 300:
-      save(minecraft)
-      counter = 0
-    else:
-      counter = counter + 1
+    counter = 0
+    while minecraft.poll() is None:
+        if counter > 300:
+            save(minecraft)
+            counter = 0
+        else:
+            counter = counter + 1
 
-    sleep(1)
+        sleep(1)
 
-  save_and_exit()
+    save_and_exit()
 
 if __name__ == "__main__":
-  main()
+    main()
