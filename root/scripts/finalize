@@ -64,11 +64,12 @@ class LogPipe(Thread):
         """
         os_close(self.fdWrite)
 
-distutils.log = LOGGER
 
 LOGGER = create_logger(PurePath(__file__).stem)
 LOGINFO = LogPipe(LOGGER, INFO)
 LOGERR = LogPipe(LOGGER, ERROR)
+
+distutils.log = LOGGER
 
 CHILD_PROCESS_LIST = []
 
