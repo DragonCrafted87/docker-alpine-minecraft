@@ -103,7 +103,7 @@ def save_and_exit():
     process.stdin.flush()
 
     counter = 0
-    while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 90:
+    while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 30:
       sleep(1)
       counter = counter + 1
 
@@ -149,7 +149,7 @@ def main():
     sleep(1)
 
   counter = 0
-  while not minecraft.poll():
+  while not LOGINFO.last_logged_line.endswith('RCON Listener stopped'):
     if counter > 300:
       save(minecraft)
       counter = 0
