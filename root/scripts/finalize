@@ -96,9 +96,6 @@ def save(process):
       minecraft.stdin.write(b'save-on\n')
       minecraft.stdin.flush()
 
-
-
-
 def save_and_exit():
   for process in CHILD_PROCESS_LIST:
     save(process)
