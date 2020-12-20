@@ -102,11 +102,13 @@ def save_and_exit():
     process.stdin.write(b'stop\n')
 
   counter = 0
-  while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 30:
+  while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 90:
+    print('waiting on close')
     sleep(1)
     counter = counter + 1
 
   sync_copy()
+  print('after sync')
 
   LOGINFO.close()
   LOGERR.close()
