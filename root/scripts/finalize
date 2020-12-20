@@ -88,7 +88,6 @@ def signal_handler(sig, frame):
     RAM_DRIVE,
     NFS_DRIVE,
     update=1,
-    verbose=1,
   )
 
   LOGINFO.close()
@@ -114,7 +113,6 @@ def main():
     NFS_DRIVE,
     RAM_DRIVE,
     update=1,
-    verbose=1,
   )
 
   chdir(RAM_DRIVE)
@@ -141,7 +139,6 @@ def main():
         RAM_DRIVE,
         NFS_DRIVE,
         update=1,
-        verbose=1,
       )
       minecraft.stdin.write(b'save-on\n')
       minecraft.stdin.flush()
