@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 # System Imports
+import distutils.log
 from distutils.dir_util import copy_tree
 from logging import ERROR
 from logging import INFO
@@ -62,6 +63,8 @@ class LogPipe(Thread):
         """Close the write end of the pipe.
         """
         os_close(self.fdWrite)
+
+distutils.log = LOGGER
 
 LOGGER = create_logger(PurePath(__file__).stem)
 LOGINFO = LogPipe(LOGGER, INFO)
