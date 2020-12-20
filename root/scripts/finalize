@@ -69,6 +69,7 @@ LOGGER = create_logger(PurePath(__file__).stem)
 LOGINFO = LogPipe(LOGGER, INFO)
 LOGERR = LogPipe(LOGGER, ERROR)
 
+LOGGER.setLevel(INFO)
 distutils.log = LOGGER
 
 CHILD_PROCESS_LIST = []
