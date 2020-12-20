@@ -101,6 +101,7 @@ def save_and_exit():
     save(process)
     process.stdin.write(b'stop\n')
 
+  sleep(10)
   sync_copy()
 
   LOGINFO.close()
