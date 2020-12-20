@@ -101,11 +101,11 @@ def save_and_exit():
     save(process)
     process.stdin.write(b'stop\n')
 
-  counter = 0
-  while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 90:
-    print('waiting on close')
-    sleep(1)
-    counter = counter + 1
+#  counter = 0
+#  while not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and counter < 90:
+#    print('waiting on close')
+#    sleep(1)
+#    counter = counter + 1
 
   sync_copy()
   print('after sync')
@@ -149,8 +149,7 @@ def main():
     sleep(1)
 
   counter = 0
-  running = bool(minecraft.poll())
-  while running:
+  while not minecraft.poll():
     if counter > 300:
       save(minecraft)
       counter = 0
@@ -158,7 +157,6 @@ def main():
       counter = counter + 1
 
     sleep(1)
-    running = bool(minecraft.poll())
 
   save_and_exit()
 
