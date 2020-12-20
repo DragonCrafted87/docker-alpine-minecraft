@@ -73,28 +73,47 @@ distutils.log = LOGGER
 
 CHILD_PROCESS_LIST = []
 
-def signal_handler(sig, frame):
-  for process in CHILD_PROCESS_LIST:
-    if process.poll():
-      process.stdin.write(b'save-all\n')
-      process.stdin.flush()
-      while not LOGINFO.last_logged_line.endswith('Saved the game'):
-        print('waiting for Saved string')
-        sleep(1)
-      process.stdin.write(b'stop\n')
-      sleep(1)
-
+def sync_copy():
   copy_tree(
     RAM_DRIVE,
     NFS_DRIVE,
     update=1,
   )
 
+def save(process):
+  if process.poll():
+      minecraft.stdin.write(b'save-off\n')
+      minecraft.stdin.flush()
+      minecraft.stdin.write(b'save-all\n')
+      minecraft.stdin.flush()
+
+      while not LOGINFO.last_logged_line.endswith('Saved the game') and not LOGINFO.last_logged_line.endswith('RCON Listener stopped'):
+        sleep(1)
+
+      sync_copy()
+
+      minecraft.stdin.write(b'save-on\n')
+      minecraft.stdin.flush()
+
+
+
+
+def save_and_exit():
+  for process in CHILD_PROCESS_LIST:
+    save(process)
+    process.stdin.write(b'stop\n')
+
+  sync_copy()
+
   LOGINFO.close()
   LOGERR.close()
 
   raise SystemExit('Exiting')
   return
+
+def signal_handler(sig, frame):
+  save_and_exit()
+
 
 def main():
   signal(SIGINT, signal_handler)
@@ -128,20 +147,7 @@ def main():
   running = bool(minecraft.poll())
   while running:
     if counter > 300:
-      minecraft.stdin.write(b'save-off\n')
-      minecraft.stdin.flush()
-      minecraft.stdin.write(b'save-all\n')
-      minecraft.stdin.flush()
-      while not LOGINFO.last_logged_line.endswith('Saved the game'):
-        sleep(1)
-
-      copy_tree(
-        RAM_DRIVE,
-        NFS_DRIVE,
-        update=1,
-      )
-      minecraft.stdin.write(b'save-on\n')
-      minecraft.stdin.flush()
+      save(minecraft)
       counter = 0
     else:
       counter = counter + 1
@@ -149,16 +155,7 @@ def main():
     sleep(1)
     running = bool(minecraft.poll())
 
-  #do the final copy
-  copy_tree(
-    RAM_DRIVE,
-    NFS_DRIVE,
-    update=1,
-    verbose=1,
-  )
-
-
-
+  save_and_exit()
 
 if __name__ == "__main__":
   main()
