@@ -71,12 +71,22 @@ distutils.log = LOGGER
 
 CHILD_PROCESS_LIST = []
 
-def sync_copy():
-    copy_tree(
-      RAM_DRIVE,
-      NFS_DRIVE,
-      update=1,
-    )
+def sync_copy(ram_to_data_store=True):
+    try:
+        if ram_to_data_store:
+            copy_tree(
+              RAM_DRIVE,
+              NFS_DRIVE,
+              update=1,
+            )
+        else:
+            copy_tree(
+              NFS_DRIVE,
+              RAM_DRIVE,
+              update=1,
+            )
+    except Exception:
+        pass
 
 def save(process):
     if process.poll() is None:
@@ -135,15 +145,36 @@ def main():
         minecraft.wait()
         remove('fabric-installer.jar')
 
-    copy_tree(
-      NFS_DRIVE,
-      RAM_DRIVE,
-      update=1,
-    )
+    sync_copy(ram_to_data_store=False)
 
     chdir(RAM_DRIVE)
-    start_server_script = 'java -Xms4G -Xmx4G -jar fabric-server-launch.jar --nogui'
-    minecraft = Popen(start_server_script, shell=True, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
+    start_server_script = ['/usr/bin/java',
+        '-Xms4G',
+        '-Xmx4G',
+        '-XX:+UseG1GC',
+        '-XX:+ParallelRefProcEnabled',
+        '-XX:MaxGCPauseMillis=200',
+        '-XX:+UnlockExperimentalVMOptions',
+        '-XX:+DisableExplicitGC',
+        '-XX:+AlwaysPreTouch',
+        '-XX:G1NewSizePercent=30',
+        '-XX:G1MaxNewSizePercent=40',
+        '-XX:G1HeapRegionSize=8M',
+        '-XX:G1ReservePercent=20',
+        '-XX:G1HeapWastePercent=5',
+        '-XX:G1MixedGCCountTarget=4',
+        '-XX:InitiatingHeapOccupancyPercent=15',
+        '-XX:G1MixedGCLiveThresholdPercent=90',
+        '-XX:G1RSetUpdatingPauseTimePercent=5',
+        '-XX:SurvivorRatio=32',
+        '-XX:+PerfDisableSharedMem',
+        '-XX:MaxTenuringThreshold=1',
+        '-Dusing.aikars.flags=https://mcflags.emc.gs',
+        '-Daikars.new.flags=true',
+        '-jar', f'{RAM_DRIVE}fabric-server-launch.jar',
+        'nogui']
+
+    minecraft = Popen(start_server_script, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
     CHILD_PROCESS_LIST.append(minecraft)
 
     # wait to finish booting
