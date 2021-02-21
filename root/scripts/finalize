@@ -159,9 +159,7 @@ def main():
     total_ram = int(run('/usr/bin/free', stdout=PIPE).stdout.decode('utf-8').split('\n')[1].split()[1]) / 1000000
     minecraft_ram = int(total_ram * 0.25)
 
-
-
-
+    LOGGER.info(f'Using {minecraft_ram}G RAM for Minecraft')
 
     # https://aikar.co/2018/07/02/tuning-the-jvm-g1gc-garbage-collector-flags-for-minecraft/
     start_server_script = []
@@ -201,7 +199,8 @@ def main():
     start_server_script.append('-XX:MaxTenuringThreshold=1')
     start_server_script.append('-Dusing.aikars.flags=https://mcflags.emc.gs')
     start_server_script.append('-Daikars.new.flags=true')
-    start_server_script.append('-jar', f'{RAM_DRIVE}fabric-server-launch.jar')
+    start_server_script.append('-jar')
+    start_server_script.append(f'{RAM_DRIVE}fabric-server-launch.jar')
     start_server_script.append('nogui')
 
     minecraft = Popen(start_server_script, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
