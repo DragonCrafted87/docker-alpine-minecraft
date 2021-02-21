@@ -156,7 +156,7 @@ def main():
     chdir(RAM_DRIVE)
 
 
-    total_ram = int(run('/usr/bin/free', stdout=PIPE).stdout.decode('utf-8'))[1].split()[1] / 1000000
+    total_ram = int(run('/usr/bin/free', stdout=PIPE).stdout.decode('utf-8')).split('\n')[1].split()[1] / 1000000
     minecraft_ram = int(total_ram * 0.25)
 
 
