@@ -19,6 +19,8 @@ from signal import SIGTERM
 from subprocess import PIPE
 from subprocess import Popen
 from threading import Thread
+from subprocess import run
+
 from time import sleep
 
 # Local Imports
@@ -137,6 +139,10 @@ def main():
     signal(SIGABRT, signal_handler)
     signal(SIGTERM, signal_handler)
 
+
+
+    # get version from https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml
+    # download location https://maven.fabricmc.net/net/fabricmc/fabric-installer/0.6.1.51/fabric-installer-0.6.1.51.jar
     fabric_installer = Path('/mnt/minecraft/fabric-installer.jar')
     if fabric_installer.is_file() :
         chdir(NFS_DRIVE)
@@ -148,31 +154,55 @@ def main():
     sync_copy(ram_to_data_store=False)
 
     chdir(RAM_DRIVE)
-    start_server_script = ['/usr/bin/java',
-        '-Xms4G',
-        '-Xmx4G',
-        '-XX:+UseG1GC',
-        '-XX:+ParallelRefProcEnabled',
-        '-XX:MaxGCPauseMillis=200',
-        '-XX:+UnlockExperimentalVMOptions',
-        '-XX:+DisableExplicitGC',
-        '-XX:+AlwaysPreTouch',
-        '-XX:G1NewSizePercent=30',
-        '-XX:G1MaxNewSizePercent=40',
-        '-XX:G1HeapRegionSize=8M',
-        '-XX:G1ReservePercent=20',
-        '-XX:G1HeapWastePercent=5',
-        '-XX:G1MixedGCCountTarget=4',
-        '-XX:InitiatingHeapOccupancyPercent=15',
-        '-XX:G1MixedGCLiveThresholdPercent=90',
-        '-XX:G1RSetUpdatingPauseTimePercent=5',
-        '-XX:SurvivorRatio=32',
-        '-XX:+PerfDisableSharedMem',
-        '-XX:MaxTenuringThreshold=1',
-        '-Dusing.aikars.flags=https://mcflags.emc.gs',
-        '-Daikars.new.flags=true',
-        '-jar', f'{RAM_DRIVE}fabric-server-launch.jar',
-        'nogui']
+
+
+    total_ram = int(run("free | awk 'FNR == 2 {print $2}'", stdout=PIPE).stdout.decode('utf-8')) / 1000000
+    minecraft_ram = int(total_ram * 0.25)
+
+
+
+
+
+    # https://aikar.co/2018/07/02/tuning-the-jvm-g1gc-garbage-collector-flags-for-minecraft/
+    start_server_script = []
+    start_server_script.append('/usr/bin/java')
+    start_server_script.append(f'-Xms{minecraft_ram}G')
+    start_server_script.append(f'-Xmx{minecraft_ram}G')
+    start_server_script.append('-XX:+UseG1GC')
+    start_server_script.append('-XX:+ParallelRefProcEnabled')
+    start_server_script.append('-XX:MaxGCPauseMillis=200')
+    start_server_script.append('-XX:+UnlockExperimentalVMOptions')
+    start_server_script.append('-XX:+DisableExplicitGC')
+    start_server_script.append('-XX:+AlwaysPreTouch')
+
+    if minecraft_ram > 12:
+        start_server_script.append('-XX:G1NewSizePercent=40')
+        start_server_script.append('-XX:G1MaxNewSizePercent=50')
+        start_server_script.append('-XX:G1HeapRegionSize=16M')
+        start_server_script.append('-XX:G1ReservePercent=15')
+    else:
+        start_server_script.append('-XX:G1NewSizePercent=30')
+        start_server_script.append('-XX:G1MaxNewSizePercent=40')
+        start_server_script.append('-XX:G1HeapRegionSize=8M')
+        start_server_script.append('-XX:G1ReservePercent=20')
+
+    start_server_script.append('-XX:G1HeapWastePercent=5')
+    start_server_script.append('-XX:G1MixedGCCountTarget=4')
+
+    if minecraft_ram > 12:
+        start_server_script.append('-XX:InitiatingHeapOccupancyPercent=20')
+    else:
+        start_server_script.append('-XX:InitiatingHeapOccupancyPercent=15')
+
+    start_server_script.append('-XX:G1MixedGCLiveThresholdPercent=90')
+    start_server_script.append('-XX:G1RSetUpdatingPauseTimePercent=5')
+    start_server_script.append('-XX:SurvivorRatio=32')
+    start_server_script.append('-XX:+PerfDisableSharedMem')
+    start_server_script.append('-XX:MaxTenuringThreshold=1')
+    start_server_script.append('-Dusing.aikars.flags=https://mcflags.emc.gs')
+    start_server_script.append('-Daikars.new.flags=true')
+    start_server_script.append('-jar', f'{RAM_DRIVE}fabric-server-launch.jar')
+    start_server_script.append('nogui')
 
     minecraft = Popen(start_server_script, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
     CHILD_PROCESS_LIST.append(minecraft)
