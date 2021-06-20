@@ -265,14 +265,23 @@ def main():
         f"{fabric_base_url}{fabric_version}/fabric-installer-{fabric_version}.jar"
     )
     r = http_get(fabric_download_url, stream=True)
-    with open(f"D:\\temp\\minecraft\\fabric-installer.jar", "wb") as f:
-        f.write(r.content)
 
     fabric_installer = Path(f"{RAM_DRIVE}fabric-installer.jar")
+    with open(fabric_installer, "wb") as f:
+        f.write(r.content)
+
     if fabric_installer.is_file():
         minecraft_version = getenv("MINECRAFT_VERSION", "1.17")
-        chdir(NFS_DRIVE)
-        start_server_script = f"java -jar fabric-installer.jar server -mcversion {minecraft_version} -downloadMinecraft "
+        chdir(RAM_DRIVE)
+        start_server_script = []
+        start_server_script.append("/usr/bin/java")
+        start_server_script.append("-jar")
+        start_server_script.append("fabric-installer.jar")
+        start_server_script.append("server")
+        start_server_script.append("-mcversion")
+        start_server_script.append(f"{minecraft_version}")
+        start_server_script.append("-downloadMinecraft")
+
         minecraft = Popen(
             start_server_script, shell=True, stdout=LOGINFO, stderr=LOGERR
         )
@@ -283,7 +292,7 @@ def main():
 
     mod_installer_list = Path(f"{RAM_DRIVE}modlist")
     if mod_installer_list.is_file():
-        mod_installer_list = "/scripts/includes/mod_downloader.py"
+        mod_installer_script = "/scripts/includes/mod_downloader.py"
         minecraft = Popen(
             mod_installer_script, shell=True, stdout=LOGINFO, stderr=LOGERR
         )

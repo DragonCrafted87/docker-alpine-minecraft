@@ -4,21 +4,13 @@
 from glob import glob
 
 # System Imports
-from json import loads as json_load
-from multiprocessing.pool import ThreadPool
-from os import chdir
 from os import getenv
 from os import remove as delete_file
-from os import remove as file_remove
-from os import symlink
-from os.path import exists as path_exists
 from pathlib import PurePath
 from pprint import pprint
 from re import search
 from sys import exit as sys_exit
 from urllib.parse import quote
-from urllib.request import urlopen
-from urllib.request import urlretrieve
 
 # Local Imports
 from python_logger import create_logger
@@ -36,7 +28,7 @@ def file_download(url):
     old_mod_files = glob(f"{MODS_FOLDER}{mod_name}*")
     for f in old_mod_files:
         try:
-            file_remove(f)
+            delete_file(f)
         except OSError:
             pass
 
@@ -108,7 +100,7 @@ def main():
 
     logger.info(f"Getting Mods for MineCraft Version {minecraft_version}")
 
-    logger.info(f"Parsing Mod List")
+    logger.info("Parsing Mod List")
     download_list = []
     for url in mod_list:
         api_data = http_get(url)
@@ -127,7 +119,7 @@ def main():
         if download_link is not None:
             download_list.append(download_link)
 
-    logger.info(f"Downloading Mods")
+    logger.info("Downloading Mods")
     for x in download_list:
         file_download(x)
 
