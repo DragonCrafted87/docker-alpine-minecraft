@@ -126,6 +126,7 @@ def sync_copy(ram_to_data_store=True):
             sync(
                 NFS_DRIVE,
                 RAM_DRIVE,
+                "sync",
                 logger=LOGGER,
                 verbose=True,
             )
