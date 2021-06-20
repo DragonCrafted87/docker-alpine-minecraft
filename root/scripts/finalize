@@ -12,6 +12,7 @@ from multiprocessing import Process
 from os import chdir
 from os import close as os_close
 from os import fdopen
+from os import getenv
 from os import pipe as os_pipe
 from os import remove
 from pathlib import Path
