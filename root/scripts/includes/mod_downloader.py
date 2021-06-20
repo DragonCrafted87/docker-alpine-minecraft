@@ -5,6 +5,7 @@ from glob import glob
 
 # System Imports
 from os import getenv
+from os import mkdir
 from os import remove as delete_file
 from pathlib import PurePath
 from pprint import pprint
@@ -17,7 +18,7 @@ from python_logger import create_logger
 from requests import get as http_get
 
 MODS_FOLDER = "/mnt/ramdisk/mods/"
-MODS_LIST = "/mnt/ramdisk/modlist"
+MODS_LIST = "/mnt/ramdisk/modlist.conf"
 
 
 def file_download(url):
@@ -84,9 +85,10 @@ def main():
 
     mod_list_path = getenv("MINECRAFT_MOD_LIST", f"{MODS_LIST}")
     if mod_list_path is None:
+        logger.info("Mod List Not Found")
         sys_exit()
 
-    with open(f"{mod_list_path}", "r+") as f:
+    with open(f"{mod_list_path}", "r") as f:
         mod_list = [line.strip() for line in f.readlines()]
 
     mod_list = list(filter(lambda x: x, mod_list))
@@ -119,9 +121,17 @@ def main():
         if download_link is not None:
             download_list.append(download_link)
 
+    try:
+        mkdir(MODS_FOLDER)
+    except OSError:
+        pass
+
     logger.info("Downloading Mods")
     for x in download_list:
         file_download(x)
+
+    logger.info("Installed Mods")
+    logger.info(glob(f"{MODS_FOLDER}*"))
 
 
 if __name__ == "__main__":

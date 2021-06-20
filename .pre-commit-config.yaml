@@ -44,6 +44,18 @@ repos:
     rev: v0.27.1
     hooks:
     -   id: markdownlint
+-   repo: https://github.com/lovesegfault/beautysh
+    rev: v6.1.0
+    hooks:
+    -   id: beautysh
+        types: [bash, shell]
+        args:
+        -   --indent-size
+        -   '4'
+-   repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.7.2.1
+    hooks:
+    -   id: shellcheck
 -   repo: https://github.com/psf/black
     rev: 21.6b0
     hooks:

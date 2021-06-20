@@ -265,38 +265,46 @@ def main():
     fabric_download_url = (
         f"{fabric_base_url}{fabric_version}/fabric-installer-{fabric_version}.jar"
     )
-    r = http_get(fabric_download_url, stream=True)
+    fabric_download = http_get(fabric_download_url, stream=True)
 
     fabric_installer = Path(f"{RAM_DRIVE}fabric-installer.jar")
+    LOGGER.info(fabric_installer)
     with open(fabric_installer, "wb") as f:
-        f.write(r.content)
+        f.write(fabric_download.content)
 
     if fabric_installer.is_file():
         minecraft_version = getenv("MINECRAFT_VERSION", "1.17")
         chdir(RAM_DRIVE)
-        start_server_script = []
-        start_server_script.append("/usr/bin/java")
-        start_server_script.append("-jar")
-        start_server_script.append("fabric-installer.jar")
-        start_server_script.append("server")
-        start_server_script.append("-mcversion")
-        start_server_script.append(f"{minecraft_version}")
-        start_server_script.append("-downloadMinecraft")
+        fabric_install_script = []
+        fabric_install_script.append("/usr/bin/java")
+        fabric_install_script.append("-jar")
+        fabric_install_script.append(f"{RAM_DRIVE}fabric-installer.jar")
+        fabric_install_script.append("server")
+        fabric_install_script.append("-mcversion")
+        fabric_install_script.append(f"{minecraft_version}")
+        fabric_install_script.append("-downloadMinecraft")
+        fabric_install_script.append("-dir")
+        fabric_install_script.append(f"{RAM_DRIVE}")
 
-        minecraft = Popen(
-            start_server_script, shell=True, stdout=LOGINFO, stderr=LOGERR
+        LOGGER.info(fabric_install_script)
+
+        fabric_install = Popen(
+            fabric_install_script, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR
         )
-        minecraft.wait()
+        fabric_install.wait()
         remove("fabric-installer.jar")
 
     sync_copy(ram_to_data_store=False)
 
-    mod_installer_list = Path(f"{RAM_DRIVE}modlist")
+    mod_installer_list = Path(f"{RAM_DRIVE}modlist.conf")
     if mod_installer_list.is_file():
-        mod_installer_script = "/scripts/includes/mod_downloader.py"
-        minecraft = Popen(
-            mod_installer_script, shell=True, stdout=LOGINFO, stderr=LOGERR
-        )
+        mod_installer_script = []
+        mod_installer_script.append("/usr/bin/python3")
+        mod_installer_script.append("/scripts/includes/mod_downloader.py")
+
+        LOGGER.info(mod_installer_script)
+
+        minecraft = Popen(mod_installer_script)
         minecraft.wait()
 
     chdir(RAM_DRIVE)
