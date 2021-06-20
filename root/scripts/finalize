@@ -94,6 +94,7 @@ def copy_directory_to_storage(sub_path):
         sync(
             f"{RAM_DRIVE}{sub_path}",
             f"{NFS_DRIVE}{sub_path}",
+            "sync",
             logger=LOGGER,
             verbose=True,
         )
@@ -106,6 +107,7 @@ def copy_files_to_storage():
         sync(
             RAM_DRIVE,
             NFS_DRIVE,
+            "sync",
             logger=LOGGER,
             verbose=True,
             only=FILE_LIST,
