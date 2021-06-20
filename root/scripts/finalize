@@ -1,11 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-import distutils.log
-
 # System Imports
-from distutils.dir_util import copy_tree
-from distutils.file_util import copy_file
 from logging import ERROR
 from logging import INFO
 from multiprocessing import Process
@@ -28,6 +24,9 @@ from subprocess import run
 from threading import Thread
 from time import sleep
 
+# 3rd Party Imports
+from dirsync import sync
+
 # Local Imports
 from includes.python_logger import create_logger
 from requests import get as http_get
@@ -35,6 +34,17 @@ from xmltodict import parse as xml_parse
 
 RAM_DRIVE = "/mnt/ramdisk/"
 NFS_DRIVE = "/mnt/minecraft/"
+
+FOLDER_LIST = []
+FOLDER_LIST.append("world")
+FOLDER_LIST.append("config")
+
+FILE_LIST = []
+FILE_LIST.append("banned-ips.json")
+FILE_LIST.append("banned-players.json")
+FILE_LIST.append("ops.json")
+FILE_LIST.append("server.properties")
+FILE_LIST.append("whitelist.json")
 
 
 class LogPipe(Thread):
@@ -74,28 +84,31 @@ LOGINFO = LogPipe(LOGGER, INFO)
 LOGERR = LogPipe(LOGGER, ERROR)
 
 LOGGER.setLevel(INFO)
-distutils.log = LOGGER
+
 
 CHILD_PROCESS = None
 
 
 def copy_directory_to_storage(sub_path):
     try:
-        copy_tree(
+        sync(
             f"{RAM_DRIVE}{sub_path}",
             f"{NFS_DRIVE}{sub_path}",
-            update=1,
+            logger=LOGGER,
+            verbose=True,
         )
     except Exception:  # pylint: disable=broad-except
         pass
 
 
-def copy_file_to_storage(sub_path):
+def copy_files_to_storage():
     try:
-        copy_file(
-            f"{RAM_DRIVE}{sub_path}",
-            f"{NFS_DRIVE}{sub_path}",
-            update=1,
+        sync(
+            RAM_DRIVE,
+            NFS_DRIVE,
+            logger=LOGGER,
+            verbose=True,
+            only=FILE_LIST,
         )
     except Exception:  # pylint: disable=broad-except
         pass
@@ -104,18 +117,15 @@ def copy_file_to_storage(sub_path):
 def sync_copy(ram_to_data_store=True):
     try:
         if ram_to_data_store:
-            copy_directory_to_storage("world")
-            copy_directory_to_storage("config")
-            copy_file_to_storage("banned-ips.json")
-            copy_file_to_storage("banned-players.json")
-            copy_file_to_storage("ops.json")
-            copy_file_to_storage("server.properties")
-            copy_file_to_storage("whitelist.json")
+            for folder in FOLDER_LIST:
+                copy_directory_to_storage(folder)
+            copy_files_to_storage()
         else:
-            copy_tree(
+            sync(
                 NFS_DRIVE,
                 RAM_DRIVE,
-                update=1,
+                logger=LOGGER,
+                verbose=True,
             )
     except Exception:  # pylint: disable=broad-except
         pass
