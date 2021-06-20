@@ -282,7 +282,7 @@ def main():
     sync_copy(ram_to_data_store=False)
 
     mod_installer_list = Path(f"{RAM_DRIVE}modlist")
-    if mod_installer.is_file():
+    if mod_installer_list.is_file():
         mod_installer_list = "/scripts/includes/mod_downloader.py"
         minecraft = Popen(
             mod_installer_script, shell=True, stdout=LOGINFO, stderr=LOGERR

@@ -106,6 +106,9 @@ def main():
     if minecraft_version.count(".") == 2:
         secondary_version = minecraft_version[: minecraft_version.rfind(".")]
 
+    logger.info(f"Getting Mods for MineCraft Version {minecraft_version}")
+
+    logger.info(f"Parsing Mod List")
     download_list = []
     for url in mod_list:
         api_data = http_get(url)
@@ -124,6 +127,7 @@ def main():
         if download_link is not None:
             download_list.append(download_link)
 
+    logger.info(f"Downloading Mods")
     for x in download_list:
         file_download(x)
 
