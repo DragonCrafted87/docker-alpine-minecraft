@@ -1,7 +1,11 @@
 #!/usr/bin/python3
+# -*- coding: utf-8 -*-
+
+import distutils.log
 
 # System Imports
 from distutils.dir_util import copy_tree
+from distutils.file_util import copy_file
 from logging import ERROR
 from logging import INFO
 from multiprocessing import Process
@@ -12,25 +16,27 @@ from os import pipe as os_pipe
 from os import remove
 from pathlib import Path
 from pathlib import PurePath
+from pprint import pprint
 from signal import SIGABRT
 from signal import SIGINT
-from signal import signal
 from signal import SIGTERM
+from signal import signal
 from subprocess import PIPE
 from subprocess import Popen
 from subprocess import run
 from threading import Thread
 from time import sleep
-import distutils.log
 
 # Local Imports
 from includes.python_logger import create_logger
+from requests import get as http_get
+from xmltodict import parse as xml_parse
 
-RAM_DRIVE = '/mnt/ramdisk/'
-NFS_DRIVE = '/mnt/minecraft/'
+RAM_DRIVE = "/mnt/ramdisk/"
+NFS_DRIVE = "/mnt/minecraft/"
+
 
 class LogPipe(Thread):
-
     def __init__(self, base_logger, level):
         # pylint: disable=invalid-name
         """Setup the object with a logger and a loglevel
@@ -42,26 +48,23 @@ class LogPipe(Thread):
         self.fdRead, self.fdWrite = os_pipe()
         self.pipeReader = fdopen(self.fdRead)
         self.base_logger = base_logger
-        self.last_logged_line = ''
+        self.last_logged_line = ""
         self.start()
 
     def fileno(self):
-        """Return the write file descriptor of the pipe
-        """
+        """Return the write file descriptor of the pipe"""
         return self.fdWrite
 
     def run(self):
-        """Run the thread, logging everything.
-        """
-        for line in iter(self.pipeReader.readline, ''):
-            self.last_logged_line = line.strip('\n')
-            self.base_logger.log(self.level, line.strip('\n'))
+        """Run the thread, logging everything."""
+        for line in iter(self.pipeReader.readline, ""):
+            self.last_logged_line = line.strip("\n")
+            self.base_logger.log(self.level, line.strip("\n"))
 
         self.pipeReader.close()
 
     def close(self):
-        """Close the write end of the pipe.
-        """
+        """Close the write end of the pipe."""
         os_close(self.fdWrite)
 
 
@@ -74,34 +77,62 @@ distutils.log = LOGGER
 
 CHILD_PROCESS = None
 
+
+def copy_directory_to_storage(sub_path):
+    try:
+        copy_tree(
+            f"{RAM_DRIVE}{sub_path}",
+            f"{NFS_DRIVE}{sub_path}",
+            update=1,
+        )
+    except Exception:  # pylint: disable=broad-except
+        pass
+
+
+def copy_file_to_storage(sub_path):
+    try:
+        copy_file(
+            f"{RAM_DRIVE}{sub_path}",
+            f"{NFS_DRIVE}{sub_path}",
+            update=1,
+        )
+    except Exception:  # pylint: disable=broad-except
+        pass
+
+
 def sync_copy(ram_to_data_store=True):
     try:
         if ram_to_data_store:
-            copy_tree(
-              RAM_DRIVE,
-              NFS_DRIVE,
-              update=1,
-            )
+            copy_directory_to_storage("world")
+            copy_directory_to_storage("config")
+            copy_file_to_storage("banned-ips.json")
+            copy_file_to_storage("banned-players.json")
+            copy_file_to_storage("ops.json")
+            copy_file_to_storage("server.properties")
+            copy_file_to_storage("whitelist.json")
         else:
             copy_tree(
-              NFS_DRIVE,
-              RAM_DRIVE,
-              update=1,
+                NFS_DRIVE,
+                RAM_DRIVE,
+                update=1,
             )
-    except Exception: # pylint: disable=broad-except
+    except Exception:  # pylint: disable=broad-except
         pass
+
 
 def save(process):
     if process.poll() is None:
-        process.stdin.write(b'save-off\n')
+        process.stdin.write(b"save-off\n")
         process.stdin.flush()
-        process.stdin.write(b'save-all\n')
+        process.stdin.write(b"save-all\n")
         process.stdin.flush()
 
         counter = 0
-        while (not LOGINFO.last_logged_line.endswith('Saved the game') and
-               not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and
-               counter < 90):
+        while (
+            not LOGINFO.last_logged_line.endswith("Saved the game")
+            and not LOGINFO.last_logged_line.endswith("RCON Listener stopped")
+            and counter < 90
+        ):
             sleep(1)
             counter = counter + 1
 
@@ -112,23 +143,26 @@ def save(process):
 
         if save_process.is_alive():
             save_process.kill()
-            LOGGER.error('Sync Timed Out Stopping Minecraft Server')
-            process.stdin.write(b'stop\n')
+            LOGGER.error("Sync Timed Out Stopping Minecraft Server")
+            process.stdin.write(b"stop\n")
             process.stdin.flush()
         else:
-            process.stdin.write(b'save-on\n')
+            process.stdin.write(b"save-on\n")
             process.stdin.flush()
 
+
 def save_and_exit():
-    LOGGER.info('Starting Final Sync')
-    global CHILD_PROCESS # pylint: disable=global-statement
+    LOGGER.info("Starting Final Sync")
+    global CHILD_PROCESS  # pylint: disable=global-statement
     if CHILD_PROCESS.poll() is None:
-        CHILD_PROCESS.stdin.write(b'stop\n')
+        CHILD_PROCESS.stdin.write(b"stop\n")
         CHILD_PROCESS.stdin.flush()
 
         counter = 0
-        while (not LOGINFO.last_logged_line.endswith('RCON Listener stopped') and
-               counter < 30):
+        while (
+            not LOGINFO.last_logged_line.endswith("RCON Listener stopped")
+            and counter < 30
+        ):
             sleep(1)
             counter = counter + 1
 
@@ -139,14 +173,15 @@ def save_and_exit():
 
     if save_process.is_alive():
         save_process.kill()
-        LOGGER.error('Final Sync Timed out')
+        LOGGER.error("Final Sync Timed out")
     else:
-        LOGGER.info('Finished Final Sync')
+        LOGGER.info("Finished Final Sync")
 
     LOGINFO.close()
     LOGERR.close()
 
-    raise SystemExit('Exiting')
+    raise SystemExit("Exiting")
+
 
 def signal_handler(_sig, _frame):
     save_and_exit()
@@ -154,87 +189,113 @@ def signal_handler(_sig, _frame):
 
 def start_minecraft():
 
-    raw_ram_string = (run('/usr/bin/free', stdout=PIPE, check=True)
-                        .stdout
-                        .decode('utf-8')
-                        .split('\n')[1]
-                        .split()[1])
+    raw_ram_string = (
+        run("/usr/bin/free", stdout=PIPE, check=True)
+        .stdout.decode("utf-8")
+        .split("\n")[1]
+        .split()[1]
+    )
 
     total_ram = int(raw_ram_string) / 1000000
     minecraft_ram = int(total_ram * 0.25)
 
-    LOGGER.info(f'Using {minecraft_ram}G RAM for Minecraft')
+    LOGGER.info(f"Using {minecraft_ram}G RAM for Minecraft")
 
     # https://aikar.co/2018/07/02/tuning-the-jvm-g1gc-garbage-collector-flags-for-minecraft/
     start_server_script = []
-    start_server_script.append('/usr/bin/java')
-    start_server_script.append(f'-Xms{minecraft_ram}G')
-    start_server_script.append(f'-Xmx{minecraft_ram}G')
-    start_server_script.append('-XX:+UseG1GC')
-    start_server_script.append('-XX:+ParallelRefProcEnabled')
-    start_server_script.append('-XX:MaxGCPauseMillis=200')
-    start_server_script.append('-XX:+UnlockExperimentalVMOptions')
-    start_server_script.append('-XX:+DisableExplicitGC')
-    start_server_script.append('-XX:+AlwaysPreTouch')
+    start_server_script.append("/usr/bin/java")
+    start_server_script.append(f"-Xms{minecraft_ram}G")
+    start_server_script.append(f"-Xmx{minecraft_ram}G")
+    start_server_script.append("-XX:+UseG1GC")
+    start_server_script.append("-XX:+ParallelRefProcEnabled")
+    start_server_script.append("-XX:MaxGCPauseMillis=200")
+    start_server_script.append("-XX:+UnlockExperimentalVMOptions")
+    start_server_script.append("-XX:+DisableExplicitGC")
+    start_server_script.append("-XX:+AlwaysPreTouch")
 
     if minecraft_ram > 12:
-        start_server_script.append('-XX:G1NewSizePercent=40')
-        start_server_script.append('-XX:G1MaxNewSizePercent=50')
-        start_server_script.append('-XX:G1HeapRegionSize=16M')
-        start_server_script.append('-XX:G1ReservePercent=15')
+        start_server_script.append("-XX:G1NewSizePercent=40")
+        start_server_script.append("-XX:G1MaxNewSizePercent=50")
+        start_server_script.append("-XX:G1HeapRegionSize=16M")
+        start_server_script.append("-XX:G1ReservePercent=15")
     else:
-        start_server_script.append('-XX:G1NewSizePercent=30')
-        start_server_script.append('-XX:G1MaxNewSizePercent=40')
-        start_server_script.append('-XX:G1HeapRegionSize=8M')
-        start_server_script.append('-XX:G1ReservePercent=20')
+        start_server_script.append("-XX:G1NewSizePercent=30")
+        start_server_script.append("-XX:G1MaxNewSizePercent=40")
+        start_server_script.append("-XX:G1HeapRegionSize=8M")
+        start_server_script.append("-XX:G1ReservePercent=20")
 
-    start_server_script.append('-XX:G1HeapWastePercent=5')
-    start_server_script.append('-XX:G1MixedGCCountTarget=4')
+    start_server_script.append("-XX:G1HeapWastePercent=5")
+    start_server_script.append("-XX:G1MixedGCCountTarget=4")
 
     if minecraft_ram > 12:
-        start_server_script.append('-XX:InitiatingHeapOccupancyPercent=20')
+        start_server_script.append("-XX:InitiatingHeapOccupancyPercent=20")
     else:
-        start_server_script.append('-XX:InitiatingHeapOccupancyPercent=15')
+        start_server_script.append("-XX:InitiatingHeapOccupancyPercent=15")
 
-    start_server_script.append('-XX:G1MixedGCLiveThresholdPercent=90')
-    start_server_script.append('-XX:G1RSetUpdatingPauseTimePercent=5')
-    start_server_script.append('-XX:SurvivorRatio=32')
-    start_server_script.append('-XX:+PerfDisableSharedMem')
-    start_server_script.append('-XX:MaxTenuringThreshold=1')
-    start_server_script.append('-Dusing.aikars.flags=https://mcflags.emc.gs')
-    start_server_script.append('-Daikars.new.flags=true')
-    start_server_script.append('-jar')
-    start_server_script.append(f'{RAM_DRIVE}fabric-server-launch.jar')
-    start_server_script.append('nogui')
+    start_server_script.append("-XX:G1MixedGCLiveThresholdPercent=90")
+    start_server_script.append("-XX:G1RSetUpdatingPauseTimePercent=5")
+    start_server_script.append("-XX:SurvivorRatio=32")
+    start_server_script.append("-XX:+PerfDisableSharedMem")
+    start_server_script.append("-XX:MaxTenuringThreshold=1")
+    start_server_script.append("-Dusing.aikars.flags=https://mcflags.emc.gs")
+    start_server_script.append("-Daikars.new.flags=true")
+    start_server_script.append("-jar")
+    start_server_script.append(f"{RAM_DRIVE}fabric-server-launch.jar")
+    start_server_script.append("nogui")
 
     return Popen(start_server_script, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
+
 
 def main():
     signal(SIGINT, signal_handler)
     signal(SIGABRT, signal_handler)
     signal(SIGTERM, signal_handler)
 
-    # Base url
-    #   https://maven.fabricmc.net/net/fabricmc/fabric-installer/
-    # get version from: maven-metadata.xml
-    # download location: 0.6.1.51/fabric-installer-0.6.1.51.jar
-    fabric_installer = Path('/mnt/minecraft/fabric-installer.jar')
-    if fabric_installer.is_file() :
+    fabric_base_url = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/"
+    fabric_metadata_url = f"{fabric_base_url}maven-metadata.xml"
+
+    r = xml_parse(http_get(fabric_metadata_url, stream=True).content)
+
+    try:
+        fabric_version = r["metadata"]["versioning"]["release"]
+    except:
+        pass
+
+    fabric_download_url = (
+        f"{fabric_base_url}{fabric_version}/fabric-installer-{fabric_version}.jar"
+    )
+    r = http_get(fabric_download_url, stream=True)
+    with open(f"D:\\temp\\minecraft\\fabric-installer.jar", "wb") as f:
+        f.write(r.content)
+
+    fabric_installer = Path(f"{RAM_DRIVE}fabric-installer.jar")
+    if fabric_installer.is_file():
+        minecraft_version = getenv("MINECRAFT_VERSION", "1.17")
         chdir(NFS_DRIVE)
-        start_server_script = 'java -jar fabric-installer.jar server -downloadMinecraft'
-        minecraft = Popen(start_server_script, shell=True, stdout=LOGINFO, stderr=LOGERR)
+        start_server_script = f"java -jar fabric-installer.jar server -mcversion {minecraft_version} -downloadMinecraft "
+        minecraft = Popen(
+            start_server_script, shell=True, stdout=LOGINFO, stderr=LOGERR
+        )
         minecraft.wait()
-        remove('fabric-installer.jar')
+        remove("fabric-installer.jar")
 
     sync_copy(ram_to_data_store=False)
 
+    mod_installer_list = Path(f"{RAM_DRIVE}modlist")
+    if mod_installer.is_file():
+        mod_installer_list = "/scripts/includes/mod_downloader.py"
+        minecraft = Popen(
+            mod_installer_script, shell=True, stdout=LOGINFO, stderr=LOGERR
+        )
+        minecraft.wait()
+
     chdir(RAM_DRIVE)
 
-    global CHILD_PROCESS # pylint: disable=global-statement
+    global CHILD_PROCESS  # pylint: disable=global-statement
     CHILD_PROCESS = start_minecraft()
 
     # wait to finish booting
-    while not LOGINFO.last_logged_line.endswith('RCON running on 0.0.0.0:25575'):
+    while not LOGINFO.last_logged_line.endswith("RCON running on 0.0.0.0:25575"):
         sleep(1)
 
     counter = 0
@@ -248,6 +309,7 @@ def main():
         sleep(1)
 
     save_and_exit()
+
 
 if __name__ == "__main__":
     main()

@@ -15,9 +15,12 @@ COPY root/. /
 
 RUN apk add --no-cache --update \
     git \
-    openjdk8-jre \
-    tini && \
-    pip3 --no-cache-dir install mcrcon && \
+    openjdk16-jre \
+    tini \
+    && \
+    pip3 --no-cache-dir install \
+    mcrcon \
+    xmltodict \
+    && \
     rm  -rf /tmp/* /var/cache/apk/* && \
-    mkdir /minecraft && \
     chmod +x -R /scripts/*
