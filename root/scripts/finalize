@@ -314,6 +314,8 @@ def main():
         mod_installer_script = []
         mod_installer_script.append("/usr/bin/python3")
         mod_installer_script.append("/scripts/includes/mod_downloader.py")
+        mod_installer_script.append(str(mod_installer_list))
+        mod_installer_script.append("/mnt/ramdisk/mods/")
 
         LOGGER.info(mod_installer_script)
 
