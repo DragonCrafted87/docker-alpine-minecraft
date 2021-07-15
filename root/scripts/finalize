@@ -13,6 +13,8 @@ from os import pipe as os_pipe
 from os import remove
 from pathlib import Path
 from pathlib import PurePath
+from pickle import dump as pickle_dump
+from pickle import load as pickle_load
 from pprint import pprint
 from signal import SIGABRT
 from signal import SIGINT
@@ -34,6 +36,8 @@ from xmltodict import parse as xml_parse
 
 RAM_DRIVE = "/mnt/ramdisk/"
 NFS_DRIVE = "/mnt/minecraft/"
+DATA_STORE = "/mnt/minecraft/store.pckl"
+SAVE_INTERVAL = 300
 
 FOLDER_LIST = []
 FOLDER_LIST.append("world")
@@ -59,7 +63,9 @@ class LogPipe(Thread):
         self.fdRead, self.fdWrite = os_pipe()
         self.pipeReader = fdopen(self.fdRead)
         self.base_logger = base_logger
-        self.last_logged_line = ""
+        self._watch_for_value = False
+        self._watched_value = None
+        self.watched_value_found = False
         self.start()
 
     def fileno(self):
@@ -69,14 +75,27 @@ class LogPipe(Thread):
     def run(self):
         """Run the thread, logging everything."""
         for line in iter(self.pipeReader.readline, ""):
-            self.last_logged_line = line.strip("\n")
-            self.base_logger.log(self.level, line.strip("\n"))
+            clean_line = line.strip("\n")
+            if self._watch_for_value:
+                if any(substring in clean_line for substring in self._watched_values):
+                    self.watched_value_found = True
+            self.base_logger.log(self.level, clean_line)
 
         self.pipeReader.close()
 
     def close(self):
         """Close the write end of the pipe."""
         os_close(self.fdWrite)
+
+    def watch_for_value(self, *watch_values):
+        """Setup Watched Value."""
+        if watch_values:
+            self._watch_for_value = True
+            self._watched_values = list(watch_values)
+        else:
+            self._watch_for_value = False
+            self._watched_value = None
+        self.watched_value_found = False
 
 
 LOGGER = create_logger(PurePath(__file__).stem)
@@ -141,12 +160,9 @@ def save(process):
         process.stdin.write(b"save-all\n")
         process.stdin.flush()
 
+        LOGINFO.watch_for_value("Saved the game", "RCON Listener stopped")
         counter = 0
-        while (
-            not LOGINFO.last_logged_line.endswith("Saved the game")
-            and not LOGINFO.last_logged_line.endswith("RCON Listener stopped")
-            and counter < 90
-        ):
+        while not LOGINFO.watched_value_found and counter < 90:
             sleep(1)
             counter = counter + 1
 
@@ -173,10 +189,8 @@ def save_and_exit():
         CHILD_PROCESS.stdin.flush()
 
         counter = 0
-        while (
-            not LOGINFO.last_logged_line.endswith("RCON Listener stopped")
-            and counter < 30
-        ):
+        LOGINFO.watch_for_value("RCON Listener stopped")
+        while not LOGINFO.watched_value_found and counter < 30:
             sleep(1)
             counter = counter + 1
 
@@ -201,7 +215,67 @@ def signal_handler(_sig, _frame):
     save_and_exit()
 
 
-def start_minecraft():
+def install_fabric(minecraft_version):
+    fabric_base_url = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/"
+    fabric_metadata_url = f"{fabric_base_url}maven-metadata.xml"
+
+    r = xml_parse(http_get(fabric_metadata_url, stream=True).content)
+
+    try:
+        fabric_version = r["metadata"]["versioning"]["release"]
+    except:
+        pass
+
+    fabric_download_url = (
+        f"{fabric_base_url}{fabric_version}/fabric-installer-{fabric_version}.jar"
+    )
+    fabric_download = http_get(fabric_download_url, stream=True)
+
+    fabric_installer = Path(f"{RAM_DRIVE}fabric-installer.jar")
+    LOGGER.info(fabric_installer)
+    with open(fabric_installer, "wb") as f:
+        f.write(fabric_download.content)
+
+    if fabric_installer.is_file():
+        chdir(RAM_DRIVE)
+        fabric_install_script = []
+        fabric_install_script.append("/usr/bin/java")
+        fabric_install_script.append("-jar")
+        fabric_install_script.append(f"{RAM_DRIVE}fabric-installer.jar")
+        fabric_install_script.append("server")
+        fabric_install_script.append("-mcversion")
+        fabric_install_script.append(f"{minecraft_version}")
+        fabric_install_script.append("-downloadMinecraft")
+        fabric_install_script.append("-dir")
+        fabric_install_script.append(f"{RAM_DRIVE}")
+
+        LOGGER.info(fabric_install_script)
+
+        fabric_install = Popen(
+            fabric_install_script, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR
+        )
+        fabric_install.wait()
+        remove("fabric-installer.jar")
+
+
+def install_mods():
+    mod_installer_list = Path(f"{RAM_DRIVE}modlist.conf")
+    if mod_installer_list.is_file():
+        mod_installer_script = []
+        mod_installer_script.append("/usr/bin/python3")
+        mod_installer_script.append("/scripts/includes/mod_downloader.py")
+        mod_installer_script.append(str(mod_installer_list))
+        mod_installer_script.append("/mnt/ramdisk/mods/")
+
+        LOGGER.info(mod_installer_script)
+
+        mod_installer = Popen(mod_installer_script)
+        mod_installer.wait()
+
+
+def start_minecraft(version_change=False):
+
+    chdir(RAM_DRIVE)
 
     raw_ram_string = (
         run("/usr/bin/free", stdout=PIPE, check=True)
@@ -254,8 +328,15 @@ def start_minecraft():
     start_server_script.append("-Dusing.aikars.flags=https://mcflags.emc.gs")
     start_server_script.append("-Daikars.new.flags=true")
     start_server_script.append("-jar")
+
+    # Minecraft Commands
     start_server_script.append(f"{RAM_DRIVE}fabric-server-launch.jar")
-    start_server_script.append("nogui")
+    start_server_script.append("--nogui")
+    if version_change:
+        # clear the lighting cache
+        start_server_script.append("--eraseCache")
+        # Upgrade all Chunks
+        start_server_script.append("--forceUpgrade")
 
     return Popen(start_server_script, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR)
 
@@ -265,75 +346,44 @@ def main():
     signal(SIGABRT, signal_handler)
     signal(SIGTERM, signal_handler)
 
-    fabric_base_url = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/"
-    fabric_metadata_url = f"{fabric_base_url}maven-metadata.xml"
-
-    r = xml_parse(http_get(fabric_metadata_url, stream=True).content)
-
+    minecraft_version = getenv("MINECRAFT_VERSION", "1.17")
+    previous_minecraft_version = None
     try:
-        fabric_version = r["metadata"]["versioning"]["release"]
-    except:
+        with open(DATA_STORE, "rb") as f:
+            previous_minecraft_version = pickle_load(f)
+    except OSError:
+        LOGGER.info("Failed to find previous Minecraft Version")
         pass
 
-    fabric_download_url = (
-        f"{fabric_base_url}{fabric_version}/fabric-installer-{fabric_version}.jar"
-    )
-    fabric_download = http_get(fabric_download_url, stream=True)
+    version_change = minecraft_version != previous_minecraft_version
+    if version_change:
+        with open(DATA_STORE, "wb") as f:
+            pickle_dump(minecraft_version, f)
 
-    fabric_installer = Path(f"{RAM_DRIVE}fabric-installer.jar")
-    LOGGER.info(fabric_installer)
-    with open(fabric_installer, "wb") as f:
-        f.write(fabric_download.content)
-
-    if fabric_installer.is_file():
-        minecraft_version = getenv("MINECRAFT_VERSION", "1.17")
-        chdir(RAM_DRIVE)
-        fabric_install_script = []
-        fabric_install_script.append("/usr/bin/java")
-        fabric_install_script.append("-jar")
-        fabric_install_script.append(f"{RAM_DRIVE}fabric-installer.jar")
-        fabric_install_script.append("server")
-        fabric_install_script.append("-mcversion")
-        fabric_install_script.append(f"{minecraft_version}")
-        fabric_install_script.append("-downloadMinecraft")
-        fabric_install_script.append("-dir")
-        fabric_install_script.append(f"{RAM_DRIVE}")
-
-        LOGGER.info(fabric_install_script)
-
-        fabric_install = Popen(
-            fabric_install_script, stdin=PIPE, stdout=LOGINFO, stderr=LOGERR
-        )
-        fabric_install.wait()
-        remove("fabric-installer.jar")
+    install_fabric(minecraft_version)
 
     sync_copy(ram_to_data_store=False)
 
-    mod_installer_list = Path(f"{RAM_DRIVE}modlist.conf")
-    if mod_installer_list.is_file():
-        mod_installer_script = []
-        mod_installer_script.append("/usr/bin/python3")
-        mod_installer_script.append("/scripts/includes/mod_downloader.py")
-        mod_installer_script.append(str(mod_installer_list))
-        mod_installer_script.append("/mnt/ramdisk/mods/")
-
-        LOGGER.info(mod_installer_script)
-
-        minecraft = Popen(mod_installer_script)
-        minecraft.wait()
-
-    chdir(RAM_DRIVE)
+    install_mods()
 
     global CHILD_PROCESS  # pylint: disable=global-statement
-    CHILD_PROCESS = start_minecraft()
+    CHILD_PROCESS = start_minecraft(version_change)
 
-    # wait to finish booting
-    while not LOGINFO.last_logged_line.endswith("RCON running on 0.0.0.0:25575"):
-        sleep(1)
+    # wait up to 5 * SAVE_INTERVAL seconds before setting up save
+    # or until the RCON Listener has Started
+    # this waittime is incase of version upgrade and chunk upgrade
+    counter = 0
+    LOGINFO.watch_for_value("RCON running")
+    while CHILD_PROCESS.poll() is None:
+        counter = counter + 1
+        if counter > SAVE_INTERVAL or LOGINFO.watched_value_found:
+            break
+        sleep(5)
 
+    # save every SAVE_INTERVAL seconds
     counter = 0
     while CHILD_PROCESS.poll() is None:
-        if counter > 300:
+        if counter > SAVE_INTERVAL:
             save(CHILD_PROCESS)
             counter = 0
         else:

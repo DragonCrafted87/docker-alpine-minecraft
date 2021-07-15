@@ -132,11 +132,15 @@ def main():
     args = argument_parser.parse_args()
 
     if args.mod_list_path is None:
-        pprint("Mod List Not Found")
+        pprint("No Mod List Location Given. Exiting.")
         sys_exit()
 
-    with open(f"{args.mod_list_path}", "r") as mod_list_file:
-        mod_list = [line.strip() for line in mod_list_file.readlines()]
+    try:
+        with open(f"{args.mod_list_path}", "r") as mod_list_file:
+            mod_list = [line.strip() for line in mod_list_file.readlines()]
+    except OSError:
+        pprint("Failed to open modlist File. Exiting.")
+        sys_exit()
 
     mod_list = list(filter(lambda x: x, mod_list))
     mod_list = list(filter(lambda x: not x.startswith("#"), mod_list))

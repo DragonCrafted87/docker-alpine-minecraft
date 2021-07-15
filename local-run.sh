@@ -34,5 +34,6 @@ docker build \
 
 docker run -it \
     --env TZ=America/Chicago \
-    --env MINECRAFT_VERSION="1.17" \
+    --env MINECRAFT_VERSION="1.17.1" \
+    --publish 25565:25565 \
     mc

@@ -17,7 +17,7 @@ RUN apk add --no-cache --update \
     git \
     tini \
     && \
-    apk add --no-cache --update openjdk16 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing \
+    apk add --no-cache --update openjdk16-jre-headless --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing \
     && \
     pip3 --no-cache-dir install \
     dirsync \
