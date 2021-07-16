@@ -70,15 +70,15 @@ repos:
         -   black
         -   --filter-files
         -   --force-single-line-imports
-#-   repo: https://gitlab.com/pycqa/flake8
-#    rev: 3.9.2
-#    hooks:
-#    -   id: flake8
-#-   repo: https://github.com/PyCQA/pylint
-#    rev: v2.8.3
-#    hooks:
-#    -   id: pylint
-#-   repo: https://github.com/PyCQA/bandit
-#    rev: 1.7.0
-#    hooks:
-#    -   id: bandit
+-   repo: https://github.com/lovesegfault/beautysh
+    rev: v6.1.0
+    hooks:
+    -   id: beautysh
+        types: [bash, shell]
+        args:
+        -   --indent-size
+        -   '4'
+-   repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.7.2.1
+    hooks:
+    -   id: shellcheck

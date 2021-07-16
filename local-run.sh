@@ -1,6 +1,6 @@
 #!/bin/bash
 
-mkdir -p root/mnt/ramdisk/
+mkdir -p mnt/ramdisk/
 
 cat << EOF > root/mnt/ramdisk/modlist.conf
 # test
@@ -32,8 +32,13 @@ docker build \
         --tag mc \
         .
 
-docker run -it \
-    --env TZ=America/Chicago \
-    --env MINECRAFT_VERSION="1.17.1" \
-    --publish 25565:25565 \
-    mc
+MSYS_NO_PATHCONV=1 \
+    docker run -it \
+        --env TZ=America/Chicago \
+        --env MINECRAFT_VERSION="1.17.1" \
+        --volume "$(pwd)"/mnt/minecraft:/mnt/minecraft \
+        --volume "$(pwd)"/mnt/ramdisk:/mnt/ramdisk \
+        --publish 25565:25565 \
+        mc
+
+rm -rf mnt/ramdisk/
