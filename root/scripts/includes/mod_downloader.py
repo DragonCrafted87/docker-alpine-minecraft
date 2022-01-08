@@ -60,23 +60,35 @@ def curseforge_parse(api_data, minecraft_version):
         )
         return (api_data["download"]["name"], url)
 
+    selected_item = None
+    mod_upload = parse_date("2000-01-01T00:00:00.000Z")
+
     for item in api_data["files"]:
-        if minecraft_version in item["versions"] and "Fabric" in item["versions"]:
-            base_id = item["url"][item["url"].rfind("/") + 1 :]
-            url = (
-                "https://media.forgecdn.net/files/"
-                + str(int(base_id[0:4]))
-                + "/"
-                + str(int(base_id[4:7]))
-                + "/"
-                + quote(item["name"])
-            )
-            return (item["name"], url)
+        new_mod_upload = parse_date(item["uploaded_at"])
+
+        if (
+            minecraft_version in item["versions"]
+            and "Fabric" in item["versions"]
+            and mod_upload < new_mod_upload
+        ):
+            mod_upload = new_mod_upload
+            selected_item = item
+
+    if selected_item:
+        base_id = selected_item["url"][selected_item["url"].rfind("/") + 1 :]
+        url = (
+            "https://media.forgecdn.net/files/"
+            + str(int(base_id[0:4]))
+            + "/"
+            + str(int(base_id[4:7]))
+            + "/"
+            + quote(selected_item["name"])
+        )
+        return (selected_item["name"], url)
     return None
 
 
 def github_parse(api_data, minecraft_version):
-
     for releases in api_data:
         if not bool(
             releases.get("prerelease", True)
@@ -89,6 +101,18 @@ def github_parse(api_data, minecraft_version):
                     and minecraft_version in link
                 ):
                     return (link[link.rfind("/") + 1 :], link)
+
+    for releases in api_data:
+        if not bool(releases.get("prerelease", True)):
+            for assets in releases["assets"]:
+                link = assets.get("browser_download_url")
+                if (
+                    link is not None
+                    and link.endswith("jar")
+                    and minecraft_version in link
+                ):
+                    return (link[link.rfind("/") + 1 :], link)
+
     return None
 
 

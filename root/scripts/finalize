@@ -347,15 +347,14 @@ def main():
     signal(SIGTERM, signal_handler)
 
     minecraft_version = getenv("MINECRAFT_VERSION", "1.17")
-    previous_minecraft_version = None
+    version_change = True
     try:
         with open(DATA_STORE, "rb") as f:
             previous_minecraft_version = pickle_load(f)
+            version_change = minecraft_version != previous_minecraft_version
     except OSError:
         LOGGER.info("Failed to find previous Minecraft Version")
-        pass
 
-    version_change = minecraft_version != previous_minecraft_version
     if version_change:
         with open(DATA_STORE, "wb") as f:
             pickle_dump(minecraft_version, f)

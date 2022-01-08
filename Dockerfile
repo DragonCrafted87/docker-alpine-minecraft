@@ -1,4 +1,4 @@
-FROM dragoncrafted87/alpine:latest
+FROM dragoncrafted87/alpine:3.15
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -15,13 +15,13 @@ COPY root/. /
 
 RUN apk add --no-cache --update \
     git \
+    openjdk17-jre-headless \
     tini \
-    && \
-    apk add --no-cache --update openjdk16-jre-headless --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing \
     && \
     pip3 --no-cache-dir install \
     dirsync \
     mcrcon \
+    python-dateutil \
     xmltodict \
     && \
     rm  -rf /tmp/* /var/cache/apk/* && \
