@@ -1,6 +1,5 @@
 #!/bin/bash
 
-mkdir -p mnt/ramdisk/
 mkdir -p mnt/minecraft/
 
 cat << EOF > mnt/ramdisk/modlist.conf
@@ -37,8 +36,6 @@ MSYS2_ARG_CONV_EXCL="*" \
         --env TZ=America/Chicago \
         --env MINECRAFT_VERSION="1.18.1" \
         --volume "$(pwd)"/mnt/minecraft:/mnt/minecraft \
-        --volume "$(pwd)"/mnt/ramdisk:/mnt/ramdisk \
+        --mount type=tmpfs,destination=/mnt/ramdisk \
         --publish 25565:25565 \
         mc
-
-rm -rf mnt/ramdisk/

@@ -15,9 +15,9 @@ from re import search
 from sys import exit as sys_exit
 from urllib.parse import quote
 
+from dateutil.parser import parse as parse_date  # pylint: disable=import-error
+
 # Local Imports
-# https://docs.python-requests.org/en/master/
-# pylint can't find requests for whatever reason even though its installed and works
 from requests import get as http_get  # pylint: disable=import-error
 
 
