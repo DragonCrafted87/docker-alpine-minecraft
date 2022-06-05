@@ -25,7 +25,7 @@ DEBUG = False
 def file_download(url, minecraft_folder):
     path, url = url
     file_stream = http_get(url, stream=True)
-    mods_folder = f"{minecraft_folder}\mods"
+    mods_folder = f"{minecraft_folder}/mods"
 
     mod_name = path[0 : search(r"\d", path).start() - 1]
     old_mod_prefix = str(PurePath(mods_folder, mod_name))
@@ -266,7 +266,7 @@ def main():
 
     download_list = parse_mod_list(mod_list, minecraft_version, secondary_version)
 
-    mods_folder = f"{args.minecraft_folder}\mods"
+    mods_folder = f"{args.minecraft_folder}/mods"
     makedirs(mods_folder, exist_ok=True)
 
     pprint("Downloading Mods")
