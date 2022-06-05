@@ -26,3 +26,6 @@ RUN apk add --no-cache --update \
     && \
     rm  -rf /tmp/* /var/cache/apk/* && \
     chmod +x -R /scripts/*
+
+RUN useradd -u 1000 steve
+USER steve
