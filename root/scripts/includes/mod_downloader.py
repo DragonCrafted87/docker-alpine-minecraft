@@ -184,9 +184,12 @@ def modrinth_parse(url, minecraft_version, secondary_version):
             if api_data.status_code != 200:
                 return None
 
-        version = sorted(version_list, key=itemgetter("date_published"), reverse=True)[
-            0
-        ]
+        try:
+            version = sorted(
+                version_list, key=itemgetter("date_published"), reverse=True
+            )[0]
+        except IndexError:
+            return None
 
         if DEBUG:
             pprint(version)
