@@ -5,6 +5,7 @@
 from logging import ERROR
 from logging import INFO
 from multiprocessing import Process
+from os import _exit as exit_now
 from os import chdir
 from os import close as os_close
 from os import fdopen
@@ -208,7 +209,11 @@ def save_and_exit():
     LOGINFO.close()
     LOGERR.close()
 
-    raise SystemExit("Exiting")
+    exit_code = CHILD_PROCESS.poll()
+    if exit_code is None:
+        exit_code = 9999
+
+    exit_now(exit_code)
 
 
 def signal_handler(_sig, _frame):
