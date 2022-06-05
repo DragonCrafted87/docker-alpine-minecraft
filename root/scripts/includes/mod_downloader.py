@@ -235,6 +235,8 @@ def main():
     argument_parser = ArgumentParser()
     argument_parser.add_argument("mod_list_path")
     argument_parser.add_argument("minecraft_folder")
+    argument_parser.add_argument("mc_version")
+
     args = argument_parser.parse_args()
 
     if args.mod_list_path is None:
@@ -251,7 +253,7 @@ def main():
     mod_list = list(filter(lambda x: x, mod_list))
     mod_list = list(filter(lambda x: not x.startswith("#"), mod_list))
 
-    minecraft_version = getenv("MINECRAFT_VERSION", "1.17")
+    minecraft_version = args.mc_version
     secondary_version = None
 
     if minecraft_version.count(".") == 2:
