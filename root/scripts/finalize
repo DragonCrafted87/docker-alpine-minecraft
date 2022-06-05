@@ -382,9 +382,11 @@ def main():
 
     # save every SAVE_INTERVAL seconds
     counter = 0
-    while CHILD_PROCESS.poll() is None:
+    LOGINFO.watch_for_value("RCON Listener stopped")
+    while CHILD_PROCESS.poll() is None and not LOGINFO.watched_value_found:
         if counter > SAVE_INTERVAL:
             save(CHILD_PROCESS)
+            LOGINFO.watch_for_value("RCON Listener stopped")
             counter = 0
         else:
             counter = counter + 1
