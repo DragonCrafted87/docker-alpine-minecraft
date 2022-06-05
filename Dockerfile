@@ -31,12 +31,16 @@ ARG USER=docker
 ARG UID=1000
 ARG GID=1000
 
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --ingroup "$USER" \
-    --no-create-home \
-    --uid "$UID" \
-    "$USER"
+RUN addgroup \
+            --gid "$GID" \
+            --system "$USER" \
+      && \
+      adduser \
+            --disabled-password \
+            --gecos "" \
+            --ingroup "$USER" \
+            --no-create-home \
+            --uid "$UID" \
+            "$USER"
 
 USER docker
