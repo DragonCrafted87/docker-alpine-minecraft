@@ -211,6 +211,7 @@ def save_and_exit():
 
     exit_code = CHILD_PROCESS.poll()
     if exit_code is None:
+        CHILD_PROCESS.kill()
         exit_code = 9999
 
     exit_now(exit_code)
