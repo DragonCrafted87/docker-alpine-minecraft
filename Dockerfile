@@ -27,5 +27,16 @@ RUN apk add --no-cache --update \
     rm  -rf /tmp/* /var/cache/apk/* && \
     chmod +x -R /scripts/*
 
-RUN useradd -u 1000 steve
-USER steve
+ARG USER=docker
+ARG UID=1000
+ARG GID=1000
+
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --ingroup "$USER" \
+    --no-create-home \
+    --uid "$UID" \
+    "$USER"
+
+USER docker
