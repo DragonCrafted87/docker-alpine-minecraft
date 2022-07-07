@@ -334,7 +334,6 @@ def start_minecraft(version_change=False):
     start_server_script.append("-XX:MaxTenuringThreshold=1")
     start_server_script.append("-Dusing.aikars.flags=https://mcflags.emc.gs")
     start_server_script.append("-Daikars.new.flags=true")
-    start_server_script.append("-Dfml.readTimeout=180")
     start_server_script.append("-jar")
 
     # Minecraft Commands
