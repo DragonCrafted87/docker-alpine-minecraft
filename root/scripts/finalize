@@ -264,24 +264,7 @@ def install_fabric(minecraft_version):
         remove("fabric-installer.jar")
 
 
-def install_mods():
-    mod_installer_list = Path(f"{RAM_DRIVE}modlist.conf")
-    if mod_installer_list.is_file():
-        mod_installer_script = []
-        mod_installer_script.append("/usr/bin/python3")
-        mod_installer_script.append("/scripts/includes/mod_downloader.py")
-        mod_installer_script.append(str(mod_installer_list))
-        mod_installer_script.append("/mnt/ramdisk")
-        mod_installer_script.append(getenv("MINECRAFT_VERSION", "1.18.2"))
-
-        LOGGER.info(mod_installer_script)
-
-        mod_installer = Popen(mod_installer_script)
-        mod_installer.wait()
-
-
 def start_minecraft(version_change=False):
-
     chdir(RAM_DRIVE)
 
     raw_ram_string = (
@@ -369,8 +352,6 @@ def main():
     install_fabric(minecraft_version)
 
     sync_copy(ram_to_data_store=False)
-
-    install_mods()
 
     global CHILD_PROCESS  # pylint: disable=global-statement
     CHILD_PROCESS = start_minecraft(version_change)

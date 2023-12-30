@@ -1,4 +1,5 @@
-FROM dragoncrafted87/alpine:3.15
+# syntax=docker/dockerfile:1
+FROM ghcr.io/dragoncrafted87/alpine:3.19
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -13,33 +14,42 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
 
 COPY root/. /
 
-RUN apk add --no-cache --update \
-    git \
-    openjdk17-jre-headless \
-    tini \
-    && \
-    pip3 --no-cache-dir install \
-    dirsync \
-    mcrcon \
-    python-dateutil \
-    xmltodict \
-    && \
-    rm  -rf /tmp/* /var/cache/apk/* && \
+RUN <<eot ash
+    set -e
+
+    apk add --no-cache --update \
+        git \
+        openjdk17-jre-headless \
+        tini \
+
+    pip3 --no-cache-dir \
+        install \
+            --break-system-packages \
+            dirsync \
+            mcrcon \
+            python-dateutil \
+            xmltodict \
+
+    rm -rf /tmp/*
+    rm -rf /var/cache/apk/*
     chmod +x -R /scripts/*
+eot
 
 ARG USER=docker
 ARG UID=1000
 ARG GID=1000
 
-RUN addgroup \
-            --gid "$GID" \
-            --system "$USER" \
-      && \
-      adduser \
-            --disabled-password \
-            --gecos "" \
-            --ingroup "$USER" \
-            --uid "$UID" \
-            "$USER"
+RUN ash <<eot
+    addgroup \
+        --gid "$GID" \
+        --system "$USER"
+
+    adduser \
+        --disabled-password \
+        --gecos "" \
+        --ingroup "$USER" \
+        --uid "$UID" \
+        "$USER"
+eot
 
 USER docker
