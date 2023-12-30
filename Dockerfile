@@ -28,6 +28,7 @@ RUN <<eot ash
             dirsync \
             mcrcon \
             python-dateutil \
+            requests \
             xmltodict \
 
     rm -rf /tmp/*
